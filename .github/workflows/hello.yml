@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  AWS_REGION: us-east-2
+  AWS_REGION: ap-south-1
   ECR_REPOSITORY: cloudops-app
 
 jobs:
@@ -38,10 +38,7 @@ jobs:
             -t cloudops-app:latest \
             ./week4-docker
 
-      - name: Verify image exists
-        run: docker images | grep cloudops-app
-
-      - name: Smoke test
+      - name: Start container
         run: |
           docker run -d \
             --name test-app \
@@ -50,7 +47,25 @@ jobs:
             -e DATABASE_URL=postgresql://fake:fake@localhost/fake \
             cloudops-app:latest
           sleep 3
-          curl --fail http://localhost:8080/ || exit 1
+
+      - name: Test root endpoint
+        run: |
+          RESPONSE=$(curl -s http://localhost:8080/)
+          echo "Response: $RESPONSE"
+          echo $RESPONSE | grep -q "cloudops upskill" || \
+            (echo "FAILED: unexpected response from /" && exit 1)
+
+      - name: Test health endpoint
+        run: |
+          RESPONSE=$(curl -s http://localhost:8080/health)
+          echo "Response: $RESPONSE"
+          echo $RESPONSE | grep -q '"status": "ok"' || \
+            (echo "FAILED: health check did not return status ok" && exit 1)
+
+      - name: Stop and remove test container
+        run: |
+          docker stop test-app
+          docker rm test-app
 
       - name: Push to ECR
         env:
@@ -66,4 +81,4 @@ jobs:
 
       - name: Print container logs if anything went wrong
         if: failure()
-        run: docker logs test-app
+        run: docker logs test-app || true
