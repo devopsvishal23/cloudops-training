@@ -21,7 +21,7 @@ jobs:
           docker build \
             -t cloudops-app:${{ github.sha }} \
             -t cloudops-app:latest \
-            ./week4-docker/app
+            .
 
       - name: Verify image exists
         run: docker images | grep cloudops-app
