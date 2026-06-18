@@ -16,6 +16,7 @@ jobs:
       - name: Build image
         run: |
           docker build \
+            --load \
             -t cloudops-app:${{ github.sha }} \
             -t cloudops-app:latest \
             ./week4-docker
