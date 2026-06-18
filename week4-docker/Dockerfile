@@ -5,11 +5,11 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Dependencies first — this layer gets cached separately
-COPY requirements.txt .
+COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # App code last — this layer is the one that changes most
-COPY . .
+COPY app/ .
 
 EXPOSE 8000
 

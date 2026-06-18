@@ -1,9 +1,8 @@
-name: cloudops
 services:
   web:
     build: .
     ports:
-      - 8080:8000
+      - "8080:8000"
     environment:
       - APP_ENV=local
       - DATABASE_URL=postgresql://appuser:apppass@db:5432/appdb
@@ -17,8 +16,7 @@ services:
       - POSTGRES_PASSWORD=apppass
       - POSTGRES_DB=appdb
     volumes:
-    - pgdata:/var/lib/postgresql/data
-  
+      - pgdata:/var/lib/postgresql/data
 
 volumes:
   pgdata:
