@@ -59,7 +59,7 @@ jobs:
         run: |
           RESPONSE=$(curl -s http://localhost:8080/health)
           echo "Response: $RESPONSE"
-          echo $RESPONSE | grep -q '"status": "ok"' || \
+          echo $RESPONSE | grep -q '"status":"ok"' || \
             (echo "FAILED: health check did not return status ok" && exit 1)
 
       - name: Stop and remove test container
