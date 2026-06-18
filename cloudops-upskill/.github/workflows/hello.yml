@@ -26,7 +26,7 @@ jobs:
       - name: Verify image exists
         run: docker images | grep cloudops-app
 
-      - name: Smoke test — start container and hit health endpoint
+      - name: Smoke test
         run: |
           docker run -d \
             --name test-app \
@@ -34,9 +34,7 @@ jobs:
             -e APP_ENV=ci \
             -e DATABASE_URL=postgresql://fake:fake@localhost/fake \
             cloudops-app:latest
-
           sleep 3
-
           curl --fail http://localhost:8080/ || exit 1
 
       - name: Print container logs if anything went wrong
