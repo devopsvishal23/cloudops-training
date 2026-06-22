@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-env
+spec:
+  containers:
+    - name: app
+      image: nginx:1.25
+      envFrom:
+        - configMapRef:
+            name: app-config
