@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-probes
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flask-probes
+  template:
+    metadata:
+      labels:
+        app: flask-probes
+    spec:
+      containers:
+        - name: flask
+          image: flask-configmap-demo:v1
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+
+          livenessProbe:
+            httpGet:
+              path: /           # if app is deadlocked, this hangs → restart
+              port: 5000
+            initialDelaySeconds: 10   # give flask time to start
+            periodSeconds: 15
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /           # only send traffic when app responds
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 2
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
