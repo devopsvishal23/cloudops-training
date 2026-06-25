@@ -129,11 +129,27 @@ Starting with Phase 1 gives you the foundation. You will naturally understand wh
 
 ---
 
+## Cost
+
+The scheduling solution itself costs **$0.00/month** across all three phases — EventBridge, SSM, and Lambda all fall within AWS free tier for this usage pattern.
+
+The value is in what you **save** on EC2 runtime:
+
+| Schedule | Runtime/Day | Saving vs 24x7 |
+|---|---|---|
+| 10 AM – 9 PM daily | 11 hrs | ~54% |
+| 9 AM – 6 PM weekdays only | 9 hrs | ~75% |
+
+📄 See full breakdown: [ec2-scheduler-cost-analysis.md](./ec2-scheduler-cost-analysis.md)
+
+---
+
 ## Folder Structure
 
 ```
 ec2-scheduling/
 ├── README.md                                          ← You are here
+├── ec2-scheduler-cost-analysis.md                    ← Cost breakdown and EC2 savings
 ├── ec2-scheduler-phase1-eventbridge-ssm-native.md    ← Phase 1 full guide
 ├── ec2-scheduler-phase2-eventbridge-lambda-ssm.md    ← Phase 2 full guide
 └── ec2-scheduler-phase3-aws-instance-scheduler.md    ← Phase 3 full guide
