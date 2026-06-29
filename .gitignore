@@ -1,0 +1,6 @@
+# Gmail Cleaner — cache files contain personal email metadata
+AI-Automation/Gmail-Inbox-Cleaner/cache_*.json
+AI-Automation/Gmail-Inbox-Cleaner/email_cache.json
+AI-Automation/Gmail-Inbox-Cleaner/token.json
+AI-Automation/Gmail-Inbox-Cleaner/credentials.json
+AI-Automation/Gmail-Inbox-Cleaner/.env
