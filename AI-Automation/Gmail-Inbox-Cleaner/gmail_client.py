@@ -29,14 +29,15 @@ def get_gmail_service():
 def build_query(mode: str, date_after: str = None, date_before: str = None) -> str:
     """
     Build Gmail search query string.
-    mode: 'unread' or 'read'
-    date_after / date_before: strings in format YYYY/MM/DD
+    mode: 'unread', 'read', or 'starred'
     """
     parts = []
     if mode == "unread":
         parts.append("is:unread")
     elif mode == "read":
         parts.append("is:read")
+    elif mode == "starred":
+        parts.append("is:starred")
     if date_after:
         parts.append(f"after:{date_after}")
     if date_before:
@@ -45,10 +46,7 @@ def build_query(mode: str, date_after: str = None, date_before: str = None) -> s
 
 
 def parse_date(date_str: str) -> str:
-    """
-    Parse email Date header into clean DD Mon YYYY format.
-    Returns empty string if parsing fails.
-    """
+    """Parse email Date header into DD Mon YYYY format."""
     if not date_str:
         return ""
     try:
@@ -62,14 +60,17 @@ def fetch_emails(service, mode: str = "unread",
                  date_after: str = None, date_before: str = None) -> list:
     """
     Fetch emails from Gmail using batch requests.
-    mode     : 'unread' or 'read'
-    date_after  : 'YYYY/MM/DD' — fetch emails after this date
-    date_before : 'YYYY/MM/DD' — fetch emails before this date
-
-    Returns flat list of dicts:
-    {id, sender_name, sender_email, subject, snippet, date}
+    mode: 'unread', 'read', or 'starred'
+    Returns flat list of dicts with starred flag included.
     """
     query = build_query(mode, date_after, date_before)
+
+    # For starred mode we use the STARRED label directly
+    # For unread/read we scope to INBOX only
+    if mode == "starred":
+        label_ids = ["STARRED"]
+    else:
+        label_ids = ["INBOX"]
 
     # ── Step 1: Collect all message IDs ─────────────────────
     all_ids = []
@@ -80,15 +81,15 @@ def fetch_emails(service, mode: str = "unread",
     while True:
         print(".", end="", flush=True)
         kwargs = {
-            "userId": "me",
-            "labelIds": ["INBOX"],
-            "q": query,
+            "userId":   "me",
+            "labelIds": label_ids,
+            "q":        query,
             "maxResults": 500
         }
         if page_token:
             kwargs["pageToken"] = page_token
 
-        result = service.users().messages().list(**kwargs).execute()
+        result   = service.users().messages().list(**kwargs).execute()
         messages = result.get("messages", [])
         all_ids.extend([m["id"] for m in messages])
 
@@ -102,15 +103,15 @@ def fetch_emails(service, mode: str = "unread",
         return []
 
     # ── Step 2: Fetch metadata in batches of 100 ────────────
-    emails = []
-    batch_size = 100
+    emails       = []
+    batch_size   = 100
     total_batches = (len(all_ids) + batch_size - 1) // batch_size
 
     print(f"  Fetching metadata in {total_batches} batch(es)", end="", flush=True)
 
     for batch_start in range(0, len(all_ids), batch_size):
         print(".", end="", flush=True)
-        batch_ids = all_ids[batch_start:batch_start + batch_size]
+        batch_ids    = all_ids[batch_start:batch_start + batch_size]
         batch_results = {}
 
         def make_callback(msg_id):
@@ -141,20 +142,25 @@ def fetch_emails(service, mode: str = "unread",
             raw_from = headers.get("From", "Unknown")
 
             if "<" in raw_from and ">" in raw_from:
-                sender_name = raw_from.split("<")[0].strip().strip('"')
+                sender_name  = raw_from.split("<")[0].strip().strip('"')
                 sender_email = raw_from.split("<")[1].strip(">").strip()
             else:
-                sender_name = raw_from
+                sender_name  = raw_from
                 sender_email = raw_from
 
+            # Check if this email is starred via its label list
+            label_list = msg_data.get("labelIds", [])
+            is_starred = "STARRED" in label_list
+
             emails.append({
-                "id": msg_id,
-                "sender_raw": raw_from,
-                "sender_name": sender_name,
+                "id":           msg_id,
+                "sender_raw":   raw_from,
+                "sender_name":  sender_name,
                 "sender_email": sender_email.lower(),
-                "subject": headers.get("Subject", "(No Subject)"),
-                "snippet": msg_data.get("snippet", ""),
-                "date": parse_date(headers.get("Date", ""))
+                "subject":      headers.get("Subject", "(No Subject)"),
+                "snippet":      msg_data.get("snippet", ""),
+                "date":         parse_date(headers.get("Date", "")),
+                "starred":      is_starred
             })
 
     print(" done.\n")
@@ -164,18 +170,23 @@ def fetch_emails(service, mode: str = "unread",
 def group_by_sender(emails: list) -> dict:
     """
     Groups emails by sender_email.
+    Includes starred_count per sender so the table can flag senders
+    who have starred emails mixed in.
     Returns dict sorted by count descending.
     """
     groups = defaultdict(lambda: {
-        "name": "", "sender_email": "", "emails": [], "count": 0
+        "name": "", "sender_email": "",
+        "emails": [], "count": 0, "starred_count": 0
     })
 
     for email in emails:
         key = email["sender_email"]
-        groups[key]["name"] = email["sender_name"] if email["sender_name"] else key
+        groups[key]["name"]         = email["sender_name"] if email["sender_name"] else key
         groups[key]["sender_email"] = key
         groups[key]["emails"].append(email)
-        groups[key]["count"] += 1
+        groups[key]["count"]       += 1
+        if email.get("starred"):
+            groups[key]["starred_count"] += 1
 
     return dict(
         sorted(groups.items(), key=lambda x: x[1]["count"], reverse=True)
@@ -201,4 +212,17 @@ def mark_as_read(service, email_id: str) -> bool:
         return True
     except Exception as e:
         print(f"  Failed to mark as read {email_id}: {e}")
+        return False
+
+
+def unstar_email(service, email_id: str) -> bool:
+    try:
+        service.users().messages().modify(
+            userId="me",
+            id=email_id,
+            body={"removeLabelIds": ["STARRED"]}
+        ).execute()
+        return True
+    except Exception as e:
+        print(f"  Failed to unstar {email_id}: {e}")
         return False
