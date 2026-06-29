@@ -4,3 +4,17 @@ AI-Automation/Gmail-Inbox-Cleaner/email_cache.json
 AI-Automation/Gmail-Inbox-Cleaner/token.json
 AI-Automation/Gmail-Inbox-Cleaner/credentials.json
 AI-Automation/Gmail-Inbox-Cleaner/.env
+
+# Gmail Inbox Cleaner — never commit these
+AI-Automation/Gmail-Inbox-Cleaner/cache_*.json
+AI-Automation/Gmail-Inbox-Cleaner/email_cache.json
+AI-Automation/Gmail-Inbox-Cleaner/token.json
+AI-Automation/Gmail-Inbox-Cleaner/credentials.json
+AI-Automation/Gmail-Inbox-Cleaner/.env
+AI-Automation/Gmail-Inbox-Cleaner/__pycache__/
+AI-Automation/Gmail-Inbox-Cleaner/venv/
+
+# Global Python ignores
+__pycache__/
+*.pyc
+*.pyo
