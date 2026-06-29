@@ -137,7 +137,7 @@ def print_page(senders_list, grouped, mode, page, fetched_at, age_minutes):
         nav.append("[P] Prev")
     if page < total_pages - 1:
         nav.append("[N] Next")
-    nav += ["[#] Jump", "[A] Claude", "[F] Refresh", "[Q] Back"]
+    nav += ["[#] Jump", "[A] Claude", "[S] Search", "[F] Refresh", "[Q] Back"]
     print("  " + "  |  ".join(nav))
     print("=" * 72)
 
@@ -331,7 +331,7 @@ def handle_sender(service, sender_email, grouped, emails,
 
         if not DRY_RUN and len(skip_indices) == 0:
             del grouped[sender_email]
-            emails = [e for e in emails if e["sender_email"] != sender_email]
+            emails = [e for e in emails if e["sender_email"].lower() != sender_email.lower()]
             save_cache(emails, cache_file)
 
         return grouped, emails
@@ -353,7 +353,7 @@ def handle_sender(service, sender_email, grouped, emails,
 
     if not DRY_RUN:
         del grouped[sender_email]
-        emails = [e for e in emails if e["sender_email"] != sender_email]
+        emails = [e for e in emails if e["sender_email"].lower() != sender_email.lower()]
         save_cache(emails, cache_file)
 
     return grouped, emails
@@ -488,7 +488,7 @@ def run_claude_analysis(service, grouped, emails, fetched_at,
             for sender in affected:
                 if sender in grouped:
                     del grouped[sender]
-            emails = [e for e in emails if e["sender_email"] not in affected]
+            emails = [e for e in emails if e["sender_email"].lower() not in {a.lower() for a in affected}]
             save_cache(emails, cache_file)
             del by_category[selected_cat]
             cat_list.remove(selected_cat)
@@ -565,6 +565,311 @@ def select_time_window():
 # ════════════════════════════════════════════════════════════
 # SHARED INBOX LOOP WITH PAGINATION
 # ════════════════════════════════════════════════════════════
+
+def run_search(service, mode, current_cache_file):
+    """
+    Guided search builder. Constructs a Gmail query, fetches results
+    into a separate cache, and opens them in a mini inbox loop.
+    """
+    # ── Step 0: Choose search scope ──────────────────────────
+    print("\n" + "=" * 72)
+    print("  SEARCH — SELECT SCOPE")
+    print("=" * 72)
+    mode_label = mode.upper()
+    print(f"  [1] Current mode only ({mode_label})")
+    print("  [2] All inbox emails — read + unread combined")
+    print("  [3] Starred emails only")
+    print("  [B] Back")
+    print("=" * 72)
+
+    scope_choice = input("  Search scope: ").strip().upper()
+    if scope_choice == "B":
+        return
+
+    if scope_choice == "2":
+        scope_label    = "ALL (read + unread)"
+        scope_q_prefix = "in:inbox"
+    elif scope_choice == "3":
+        scope_label    = "STARRED"
+        scope_q_prefix = "is:starred"
+    else:
+        scope_label    = mode_label
+        scope_q_prefix = f"is:{mode}" if mode in ["read", "unread"] else "is:starred"
+
+    print("\n" + "=" * 72)
+    print(f"  SEARCH EMAILS  (scope: {scope_label})")
+    print("=" * 72)
+    print("  [1] By sender email")
+    print("  [2] By sender email + date range")
+    print("  [3] By keyword in subject")
+    print("  [4] By keyword + sender + date range")
+    print("  [5] Raw Gmail query (advanced)")
+    print("  [B] Back")
+    print("=" * 72)
+
+    choice = input("  Your choice: ").strip().upper()
+
+    if choice == "B":
+        return
+
+    sender      = ""
+    keyword     = ""
+    date_after  = ""
+    date_before = ""
+    raw_query   = ""
+
+    if choice == "1":
+        sender = input("  Sender email (e.g. netbanking@svcbank.com): ").strip()
+
+    elif choice == "2":
+        sender      = input("  Sender email: ").strip()
+        date_after  = input("  From date (YYYY/MM/DD, e.g. 2015/01/01): ").strip()
+        date_before = input("  To date   (YYYY/MM/DD, e.g. 2026/12/31): ").strip()
+
+    elif choice == "3":
+        keyword = input("  Keyword in subject (e.g. invoice): ").strip()
+
+    elif choice == "4":
+        sender      = input("  Sender email: ").strip()
+        keyword     = input("  Keyword in subject: ").strip()
+        date_after  = input("  From date (YYYY/MM/DD): ").strip()
+        date_before = input("  To date   (YYYY/MM/DD): ").strip()
+
+    elif choice == "5":
+        print("  Gmail query syntax examples:")
+        print("    from:someone@example.com after:2020/01/01 before:2023/12/31")
+        print("    subject:invoice is:unread")
+        print("    from:hdfc larger:10000")
+        raw_query = input("  Your query: ").strip()
+
+    else:
+        print("  Invalid choice.")
+        return
+
+    # ── Build the query string ───────────────────────────────
+    if raw_query:
+        # For raw queries prepend scope unless user already specified one
+        if not any(x in raw_query for x in ["is:", "in:"]):
+            query = f"{scope_q_prefix} {raw_query}"
+        else:
+            query = raw_query
+    else:
+        parts = [scope_q_prefix]
+        if sender:
+            parts.append(f"from:{sender}")
+        if keyword:
+            parts.append(f"subject:{keyword}")
+        if date_after:
+            parts.append(f"after:{date_after}")
+        if date_before:
+            parts.append(f"before:{date_before}")
+        query = " ".join(parts)
+
+    if not query.strip():
+        print("  No search terms entered. Cancelled.")
+        return
+
+    print(f"\n  Gmail query: {query}")
+    print(f"  Scope: {scope_label}")
+
+    # ── Preview ID count before full fetch ───────────────────
+    print("  Counting matching emails...", end=" ", flush=True)
+    try:
+        result   = service.users().messages().list(
+            userId="me", q=query, maxResults=1
+        ).execute()
+        # Gmail doesn't return total count directly — warn if nextPageToken exists
+        has_more = "nextPageToken" in result
+        first_batch_count = len(result.get("messages", []))
+        if first_batch_count == 0:
+            print("0 emails found.")
+            print("  No results for this query. Try broadening your search.")
+            return
+        if has_more:
+            print("500+ emails match.")
+            confirm = input(
+                "  This may take a while to fetch. Continue? (yes/no): "
+            ).strip().lower()
+            if confirm != "yes":
+                print("  Cancelled.")
+                return
+        else:
+            print(f"small result set found.")
+    except Exception as e:
+        print(f"  Error previewing count: {e}")
+        return
+
+    # ── Build a safe cache filename from the query ───────────
+    safe_query = (query
+                  .replace("from:", "")
+                  .replace("subject:", "subj-")
+                  .replace("after:", "from-")
+                  .replace("before:", "to-")
+                  .replace(" ", "_")
+                  .replace("/", "-")
+                  .replace(":", "-"))[:60]
+    cache_file = f"cache_search_{safe_query}.json"
+
+    # ── Fetch using gmail_client directly with raw query ─────
+    # We patch fetch_emails by passing the query via date fields trick.
+    # Instead, call messages.list directly here for full query support.
+    print(f"\n  Fetching results for: {query}")
+    print("  Collecting message IDs", end="", flush=True)
+
+    all_ids    = []
+    page_token = None
+    while True:
+        print(".", end="", flush=True)
+        kwargs = {"userId": "me", "q": query, "maxResults": 500}
+        if page_token:
+            kwargs["pageToken"] = page_token
+        result     = service.users().messages().list(**kwargs).execute()
+        messages   = result.get("messages", [])
+        all_ids.extend([m["id"] for m in messages])
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
+    print(f" found {len(all_ids)} emails.")
+
+    if not all_ids:
+        print("  No emails found.")
+        return
+
+    # ── Batch fetch metadata ─────────────────────────────────
+    from gmail_client import parse_date
+    from googleapiclient.http import BatchHttpRequest
+
+    emails        = []
+    batch_size    = 100
+    total_batches = (len(all_ids) + batch_size - 1) // batch_size
+    print(f"  Fetching metadata in {total_batches} batch(es)", end="", flush=True)
+
+    for batch_start in range(0, len(all_ids), batch_size):
+        print(".", end="", flush=True)
+        batch_ids     = all_ids[batch_start:batch_start + batch_size]
+        batch_results = {}
+
+        def make_callback(msg_id):
+            def callback(request_id, response, exception):
+                if exception:
+                    return
+                batch_results[msg_id] = response
+            return callback
+
+        batch = service.new_batch_http_request()
+        for msg_id in batch_ids:
+            batch.add(
+                service.users().messages().get(
+                    userId="me",
+                    id=msg_id,
+                    format="metadata",
+                    metadataHeaders=["From", "Subject", "Date"]
+                ),
+                callback=make_callback(msg_id)
+            )
+        batch.execute()
+
+        for msg_id, msg_data in batch_results.items():
+            headers      = {h["name"]: h["value"]
+                            for h in msg_data["payload"]["headers"]}
+            raw_from     = headers.get("From", "Unknown")
+            if "<" in raw_from and ">" in raw_from:
+                sender_name  = raw_from.split("<")[0].strip().strip('"')
+                sender_email = raw_from.split("<")[1].strip(">").strip()
+            else:
+                sender_name  = raw_from
+                sender_email = raw_from
+            label_list = msg_data.get("labelIds", [])
+            emails.append({
+                "id":           msg_id,
+                "sender_raw":   raw_from,
+                "sender_name":  sender_name,
+                "sender_email": sender_email.lower(),
+                "subject":      headers.get("Subject", "(No Subject)"),
+                "snippet":      msg_data.get("snippet", ""),
+                "date":         parse_date(headers.get("Date", "")),
+                "starred":      "STARRED" in label_list
+            })
+
+    print(" done.\n")
+
+    # Save to search cache
+    save_cache(emails, cache_file)
+    fetched_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"  {len(emails)} emails fetched. Cache saved as: {cache_file}")
+
+    # ── Load into paginated view ─────────────────────────────
+    grouped      = group_by_sender(emails)
+    senders_list = list(grouped.keys())
+    current_page = 0
+    search_mode  = f"search"
+
+    print_page(senders_list, grouped, search_mode,
+               current_page, fetched_at, 0)
+
+    # Mini loop for search results
+    while True:
+        total_pages = max(1, (len(senders_list) + PAGE_SIZE - 1) // PAGE_SIZE)
+        print(chr(10) + "-" * 72)
+        print("  Type a SENDER NUMBER to Preview / Delete / Mark as Read")
+        nav = []
+        if current_page > 0:
+            nav.append("[P] Prev page")
+        if current_page < total_pages - 1:
+            nav.append("[N] Next page")
+        nav += ["[A] Claude analyse", "[Q] Back to main menu"]
+        print("  " + "  |  ".join(nav))
+        print("-" * 72)
+
+        raw = input("  Your choice: ").strip().upper()
+
+        if raw == "N":
+            current_page = min(current_page + 1, total_pages - 1)
+            print_page(senders_list, grouped, search_mode,
+                       current_page, fetched_at, get_age(fetched_at))
+
+        elif raw == "P":
+            current_page = max(current_page - 1, 0)
+            print_page(senders_list, grouped, search_mode,
+                       current_page, fetched_at, get_age(fetched_at))
+
+        elif raw == "Q":
+            print("  Returning...")
+            break
+
+        elif raw == "A":
+            grouped, emails = run_claude_analysis(
+                service, grouped, emails, fetched_at, cache_file, mode
+            )
+            senders_list = list(grouped.keys())
+            total_pages  = max(1, (len(senders_list) + PAGE_SIZE - 1) // PAGE_SIZE)
+            current_page = min(current_page, total_pages - 1)
+            print_page(senders_list, grouped, search_mode,
+                       current_page, fetched_at, get_age(fetched_at))
+
+        else:
+            try:
+                num = int(raw)
+                if 1 <= num <= len(senders_list):
+                    sender_email    = senders_list[num - 1]
+                    grouped, emails = handle_sender(
+                        service, sender_email, grouped,
+                        emails, cache_file, mode
+                    )
+                    senders_list = list(grouped.keys())
+                    total_pages  = max(1, (len(senders_list) + PAGE_SIZE - 1) // PAGE_SIZE)
+                    current_page = min(current_page, total_pages - 1)
+                    if senders_list:
+                        print_page(senders_list, grouped, search_mode,
+                                   current_page, fetched_at, get_age(fetched_at))
+                    else:
+                        print(chr(10) + "  All search results processed. Returning...")
+                        break
+                else:
+                    print(f"  Enter a number between 1 and {len(senders_list)}.")
+            except ValueError:
+                print("  Invalid. Enter a sender number, N, P, A, or Q.")
+
 
 def inbox_loop(service, mode, cache_file,
                date_after=None, date_before=None, window_label=""):
@@ -652,6 +957,12 @@ def inbox_loop(service, mode, cache_file,
                        current_page, fetched_at, get_age(fetched_at))
             continue
 
+        if raw == "S":
+            run_search(service, mode, cache_file)
+            print_page(senders_list, grouped, mode,
+                       current_page, fetched_at, get_age(fetched_at))
+            continue
+
         if raw == "#":
             try:
                 num = int(input("  Enter sender number: ").strip())
@@ -716,6 +1027,7 @@ def run():
         print("  [1] 📬 UNREAD emails  — bulk clean your unread inbox")
         print("  [2] 📂 READ emails    — clean up old read emails by time window")
         print("  [3] ⭐ STARRED emails — review and manage starred emails")
+        print("  [S] 🔍 SEARCH        — search across read, unread, or starred")
         print("  [Q] Quit")
         print("=" * 72)
         print("  ⭐ Note: starred emails are always protected from deletion")
@@ -727,6 +1039,10 @@ def run():
         if choice == "Q":
             print("\n  Goodbye.")
             break
+
+        elif choice == "S":
+            # Search from main menu — default scope to unread but user can change
+            run_search(service, "unread", CACHE_UNREAD)
 
         elif choice == "2":
             date_after, date_before, window_label = select_time_window()
