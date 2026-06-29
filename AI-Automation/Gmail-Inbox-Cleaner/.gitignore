@@ -3,3 +3,5 @@ token.json
 .env
 venv/
 email_cache.json
+cache_*.json
+email_cache.json
