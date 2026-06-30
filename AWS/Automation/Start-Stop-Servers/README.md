@@ -144,13 +144,24 @@ The value is in what you **save** on EC2 runtime:
 
 ---
 
+## Alerting (Phase 4)
+
+Once scheduling is running, the team needs visibility without manually checking AWS. Phase 4 adds real-time Slack alerts to `#devops-ops-alerts` on every stop/start — success or failure — using SNS + Lambda + Slack Incoming Webhook.
+
+Every alert includes: action (Stop/Start), status (Success/Failed), instance name, instance ID, and start/end timestamps.
+
+📄 See full setup + all errors documented: [ec2-scheduler-phase4-sns-lambda-slack-alerting.md](./ec2-scheduler-phase4-sns-lambda-slack-alerting.md)
+
+---
+
 ## Folder Structure
 
 ```
 ec2-scheduling/
-├── README.md                                          ← You are here
-├── ec2-scheduler-cost-analysis.md                    ← Cost breakdown and EC2 savings
-├── ec2-scheduler-phase1-eventbridge-ssm-native.md    ← Phase 1 full guide
-├── ec2-scheduler-phase2-eventbridge-lambda-ssm.md    ← Phase 2 full guide
-└── ec2-scheduler-phase3-aws-instance-scheduler.md    ← Phase 3 full guide
+├── README.md                                               ← You are here
+├── ec2-scheduler-cost-analysis.md                         ← Cost breakdown and EC2 savings
+├── ec2-scheduler-phase1-eventbridge-ssm-native.md         ← Phase 1 full guide
+├── ec2-scheduler-phase2-eventbridge-lambda-ssm.md         ← Phase 2 full guide
+├── ec2-scheduler-phase3-aws-instance-scheduler.md         ← Phase 3 full guide
+└── ec2-scheduler-phase4-sns-lambda-slack-alerting.md      ← Phase 4 full guide + error log
 ```
