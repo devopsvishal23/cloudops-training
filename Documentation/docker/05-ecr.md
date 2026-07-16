@@ -47,45 +47,96 @@ Token TTL: **12 hours**. In CI/CD you re-login on every pipeline run.
 
 ## 🛠 Step-by-Step
 
-### 1. Authenticate Docker to ECR
+### 1. Set up environment variables
+
+Export these once per shell session — every command below reuses them, so you never hand-edit an account ID or region again.
 
 ```bash
-aws ecr get-login-password --region ap-south-1 | \
+export AWS_REGION=ap-south-1
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# Verify
+echo $AWS_ACCOUNT_ID
+```
+
+### 2. Authenticate Docker to ECR
+
+ECR uses short-lived tokens, not a static password. This fetches a 12-hour token and pipes it straight into `docker login`:
+
+```bash
+aws ecr get-login-password --region $AWS_REGION | \
   docker login --username AWS --password-stdin \
-  <account-id>.dkr.ecr.ap-south-1.amazonaws.com
+  $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 ```
 
 You should see `Login Succeeded`.
 
-### 2. Create a repository
+### 3. Create a repository
 
 ```bash
 aws ecr create-repository \
   --repository-name my-app \
-  --region ap-south-1 \
+  --region $AWS_REGION \
   --image-scanning-configuration scanOnPush=true
 ```
 
 > 💡 `scanOnPush=true` = free vulnerability scan on every push. Always turn this on.
 
-### 3. Tag and push
+The response's `repositoryUri` field is what you push to — it looks like:
+
+```text
+123456789.dkr.ecr.ap-south-1.amazonaws.com/my-app
+```
+
+### 4. Tag and push
+
+Docker needs the full registry hostname in the image tag before it knows where to push:
 
 ```bash
 # Tag your local image with the ECR URI
 docker tag my-app:v1 \
-  <account-id>.dkr.ecr.ap-south-1.amazonaws.com/my-app:v1
+  $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:v1
 
 # Push
 docker push \
-  <account-id>.dkr.ecr.ap-south-1.amazonaws.com/my-app:v1
+  $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:v1
 ```
 
-### 4. Pull it back (from any authenticated host)
+Watch the output — each layer pushes separately. If you push a second version later with only a code change, the base layers (e.g. `python:3.11-slim`, `pip install`) will show `Layer already exists` — same cache logic as local builds, applied to the registry.
+
+### 5. Verify it landed
 
 ```bash
-docker pull <account-id>.dkr.ecr.ap-south-1.amazonaws.com/my-app:v1
+aws ecr describe-images \
+  --repository-name my-app \
+  --region $AWS_REGION
+```
+
+Or in the AWS Console: **ECR → Repositories → my-app** — you'll see the image with its digest and size.
+
+### 6. Pull it back and run it (prove the round-trip)
+
+```bash
+# Delete your local copy first, so you know the next pull is real
+docker rmi $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:v1
+
+# Pull from ECR and run
 docker run -d -p 8080:8000 \
-  <account-id>.dkr.ecr.ap-south-1.amazonaws.com/my-app:v1
+  $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:v1
+
+curl http://localhost:8080/health
+```
+
+It pulls from ECR exactly like Docker Hub — the only difference is the hostname and the auth token.
+
+### 7. Tag `:latest` too — good habit
+
+```bash
+docker tag my-app:v1 \
+  $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:latest
+
+docker push \
+  $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:latest
 ```
 
 ---
