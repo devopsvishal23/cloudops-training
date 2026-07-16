@@ -45,6 +45,29 @@ Token TTL: **12 hours**. In CI/CD you re-login on every pipeline run.
 
 ---
 
+## 🗝️ Where Does the Token Actually Live?
+
+`docker login` doesn't hand you a token to manage yourself — it stores the result somewhere Docker checks automatically on the next `push`/`pull`.
+
+### Locally
+
+| Location | What's there |
+|---|---|
+| `~/.docker/config.json` | An auth entry for the ECR registry hostname |
+| Credential helper (e.g. `osxkeychain` on Docker Desktop for Mac) | The actual token — `config.json` just holds a reference, not the raw value |
+
+> 💡 If you open `~/.docker/config.json` expecting to see the token and it's not there, that's normal — Docker Desktop on macOS delegates storage to the macOS Keychain via `docker-credential-osxkeychain`. Check the `credsStore` field in that file to see which helper is active.
+
+Either way, the token expires in **12 hours** — a new `docker login` is required after that, regardless of where it's stored.
+
+### In CI/CD
+
+- Pipelines (e.g. GitHub Actions via `aws-actions/amazon-ecr-login`) run the same `get-login-password | docker login` flow under the hood.
+- **GitHub-hosted runners** are ephemeral VMs — destroyed after the job finishes, so the token never outlives the run.
+- **Self-hosted runners** are *not* ephemeral by default — `~/.docker/config.json` (or its credential helper) can accumulate tokens across jobs unless you explicitly `docker logout` or wipe the runner's home directory between runs. Treat that as a cleanup step, not an afterthought.
+
+---
+
 ## 🛠 Step-by-Step
 
 ### 1. Set up environment variables
