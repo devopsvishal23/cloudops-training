@@ -18,4 +18,4 @@ Pending items mentioned below are tracked in [`backlog.md`](./backlog.md); the c
 
 **2026-07-30** — Traced why converting to a multi-stage Dockerfile didn't shrink the image size much (real bug case study, now documented in [`docker/02a-multistage-builds.md`](../Documentation/docker/02a-multistage-builds.md)). Set up this `Refreshers/` structure to replace the Notes-app rebrush dump.
 
-**2026-07-30** - Created documentation for multistae docker file & refresher 
+**2026-07-30** - Created documentation for multistage docker file & refresher 
