@@ -2,7 +2,7 @@
 
 > **Goal:** internalise the loop **`Dockerfile → build → run → push`** and the handful of commands you'll type every day.
 
-[← Dockerfile](./02-dockerfile.md) · [Index](../README.MD) · Next: [Docker Compose →](./04-compose.md)
+[← Multi-Stage Builds](./02a-multistage-builds.md) · [Index](../README.MD) · Next: [Docker Compose →](./04-compose.md)
 
 ---
 

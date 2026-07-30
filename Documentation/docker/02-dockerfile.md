@@ -2,7 +2,7 @@
 
 > **Goal:** understand every line of a Dockerfile and *why* it's ordered the way it is.
 
-[← Concepts](./01-concepts.md) · [Index](../README.MD) · Next: [Core Workflow →](./03-workflow.md)
+[← Concepts](./01-concepts.md) · [Index](../README.MD) · Next: [Multi-Stage Builds →](./02a-multistage-builds.md)
 
 ---
 
@@ -141,6 +141,8 @@ ENTRYPOINT ["/app"]
 
 Final image = **just the binary**. No compiler, no source, no shell. Often 10–20× smaller.
 
+Full deep-dive, plus a real bug case study: [**Multi-Stage Builds →**](./02a-multistage-builds.md)
+
 ---
 
-Next: [**Core Workflow →**](./03-workflow.md)
+Next: [**Multi-Stage Builds →**](./02a-multistage-builds.md)
