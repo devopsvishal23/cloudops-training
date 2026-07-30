@@ -10,15 +10,15 @@ A structured, opinionated walkthrough of Docker for the **CloudOps Training** cu
 
 | # | Topic | File | Read time |
 |---|---|---|---|
-| 1 | **Core Concepts** — namespaces, cgroups, image vs container, layers, registry | [`docker/01-concepts.md`](./docker/01-concepts.md) | ~10 min |
-| 2 | **The Dockerfile** — anatomy, key instructions, `RUN` vs `CMD` | [`docker/02-dockerfile.md`](./docker/02-dockerfile.md) | ~6 min |
-| 3 | **Multi-Stage Builds** — why, how, when (real bug case study) | [`docker/02a-multistage-builds.md`](./docker/02a-multistage-builds.md) | ~8 min |
-| 4 | **Core Workflow** — build → run → push, common commands | [`docker/03-workflow.md`](./docker/03-workflow.md) | ~5 min |
-| 5 | **Docker Compose** — multi-container apps + private networking | [`docker/04-compose.md`](./docker/04-compose.md) | ~6 min |
-| 6 | **ECR** — AWS's private registry, auth flow, push/pull | [`docker/05-ecr.md`](./docker/05-ecr.md) | ~5 min |
-| 7 | **Common Pitfalls & Gotchas** — the traps everyone hits | [`docker/06-pitfalls.md`](./docker/06-pitfalls.md) | ~8 min |
-| 8 | **Cheat-Sheet** — one-liner command reference | [`docker/07-cheatsheet.md`](./docker/07-cheatsheet.md) | reference |
-| 9 | **Week 4 Lab Sequence** — 5-day hands-on plan + repo scaffold | [`docker/08-week4-lab.md`](./docker/08-week4-lab.md) | ~4 min |
+| 1 | **Core Concepts** — namespaces, cgroups, image vs container, layers, registry | [`01-concepts.md`](./01-concepts.md) | ~10 min |
+| 2 | **The Dockerfile** — anatomy, key instructions, `RUN` vs `CMD` | [`02-dockerfile.md`](./02-dockerfile.md) | ~6 min |
+| 3 | **Multi-Stage Builds** — why, how, when (real bug case study) | [`02a-multistage-builds.md`](./02a-multistage-builds.md) | ~8 min |
+| 4 | **Core Workflow** — build → run → push, common commands | [`03-workflow.md`](./03-workflow.md) | ~5 min |
+| 5 | **Docker Compose** — multi-container apps + private networking | [`04-compose.md`](./04-compose.md) | ~6 min |
+| 6 | **ECR** — AWS's private registry, auth flow, push/pull | [`05-ecr.md`](./05-ecr.md) | ~5 min |
+| 7 | **Common Pitfalls & Gotchas** — the traps everyone hits | [`06-pitfalls.md`](./06-pitfalls.md) | ~8 min |
+| 8 | **Cheat-Sheet** — one-liner command reference | [`07-cheatsheet.md`](./07-cheatsheet.md) | reference |
+| 9 | **Week 4 Lab Sequence** — 5-day hands-on plan + repo scaffold | [`08-week4-lab.md`](./08-week4-lab.md) | ~4 min |
 
 ---
 
@@ -47,9 +47,9 @@ A structured, opinionated walkthrough of Docker for the **CloudOps Training** cu
 ## 🧭 Where to Start
 
 - **New to Docker?** → Read files 1 → 9 in order.
-- **Need a command right now?** → [Cheat-Sheet](./docker/07-cheatsheet.md).
-- **Something is broken?** → [Pitfalls & Gotchas](./docker/06-pitfalls.md).
-- **Doing Week 4 labs?** → [Week 4 Lab Sequence](./docker/08-week4-lab.md).
+- **Need a command right now?** → [Cheat-Sheet](./07-cheatsheet.md).
+- **Something is broken?** → [Pitfalls & Gotchas](./06-pitfalls.md).
+- **Doing Week 4 labs?** → [Week 4 Lab Sequence](./08-week4-lab.md).
 
 ---
 
